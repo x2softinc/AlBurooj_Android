@@ -79,10 +79,7 @@ fun QiblaScreen(locationManager: LocationManager) {
     }
     LaunchedEffect(Unit) { if (!hasPermission) launcher.launch(Manifest.permission.ACCESS_FINE_LOCATION) }
 
-    DisposableEffect(hasPermission) {
-        if (hasPermission) locationManager.start()
-        onDispose { locationManager.stop() }
-    }
+    // Location updates are started app-wide by MainScreen.
 
     val location by locationManager.location.collectAsState()
     val magneticHeading by locationManager.heading.collectAsState()

@@ -39,7 +39,14 @@ import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.material3.rememberDrawerState
+import android.Manifest
+import android.content.pm.PackageManager
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.DisposableEffect
+import androidx.compose.runtime.LaunchedEffect
+import androidx.core.content.ContextCompat
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -93,6 +100,17 @@ fun MainScreen(locationManager: LocationManager) {
     val scope = rememberCoroutineScope()
     val context = LocalContext.current
     var header by remember { mutableStateOf(DashboardHeader("", "")) }
+
+    // Location drives the locally calculated adhan times, so ask for it app-wide at launch.
+    var hasLocation by remember {
+        mutableStateOf(ContextCompat.checkSelfPermission(context, Manifest.permission.ACCESS_FINE_LOCATION) == PackageManager.PERMISSION_GRANTED)
+    }
+    val locationLauncher = rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) { hasLocation = it }
+    LaunchedEffect(Unit) { if (!hasLocation) locationLauncher.launch(Manifest.permission.ACCESS_FINE_LOCATION) }
+    DisposableEffect(hasLocation) {
+        if (hasLocation) locationManager.start()
+        onDispose { locationManager.stop() }
+    }
 
     val backStack by navController.currentBackStackEntryAsState()
     val route = backStack?.destination?.route ?: "dashboard"
@@ -173,7 +191,7 @@ fun MainScreen(locationManager: LocationManager) {
             }
         ) { padding ->
             NavHost(navController, startDestination = "dashboard", modifier = Modifier.padding(padding).fillMaxSize()) {
-                composable("dashboard") { DashboardScreen(onHeader = { header = it }) }
+                composable("dashboard") { DashboardScreen(locationManager = locationManager, onHeader = { header = it }) }
                 composable("calendar") { CalendarScreen() }
                 composable("qibla") { QiblaScreen(locationManager) }
                 composable("masjid") { MasjidScreen() }

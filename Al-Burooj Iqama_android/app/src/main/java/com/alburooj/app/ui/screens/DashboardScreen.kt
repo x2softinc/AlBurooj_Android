@@ -58,6 +58,7 @@ import com.alburooj.app.ui.components.UserFriendlyAlert
 import com.alburooj.app.ui.theme.MaroonColor
 import com.alburooj.app.ui.theme.ThemeColor
 import com.alburooj.app.viewmodel.CurrentPrayerInfo
+import com.alburooj.app.managers.LocationManager
 import com.alburooj.app.viewmodel.TimesViewModel
 import kotlinx.coroutines.delay
 import java.text.SimpleDateFormat
@@ -77,6 +78,7 @@ class DashboardHeader(val masjidName: String, val city: String)
 @Composable
 fun DashboardScreen(
     timesVM: TimesViewModel = viewModel(),
+    locationManager: LocationManager? = null,
     onHeader: (DashboardHeader) -> Unit = {}
 ) {
     var masjidInfo by remember { mutableStateOf<MasjidInfo?>(null) }
@@ -96,6 +98,14 @@ fun DashboardScreen(
     LaunchedEffect(Unit) { loadMasjidInfo() }
     LaunchedEffect(pagerState) {
         snapshotFlow { pagerState.currentPage }.collect { timesVM.loadSuspending(it) }
+    }
+    // Recalculate adhan times once a location fix arrives (or changes).
+    if (locationManager != null) {
+        val lat by locationManager.latitude.collectAsState()
+        val lon by locationManager.longitude.collectAsState()
+        LaunchedEffect(lat, lon) {
+            if (lat != 0.0 || lon != 0.0) timesVM.loadSuspending(pagerState.currentPage)
+        }
     }
     LaunchedEffect(masjidInfo) {
         val city = AppPrefs.getString(AppConstants.CITY).ifEmpty { masjidInfo?.city.orEmpty() }
