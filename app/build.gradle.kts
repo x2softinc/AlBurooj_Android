@@ -10,10 +10,10 @@ android {
 
     defaultConfig {
         applicationId = "com.Trendsoft.com.Al_Burooj"
-        minSdk = 26
+        minSdk = 30
         targetSdk = 37
-        versionCode = 1
-        versionName = "1.0.0"
+        versionCode = 9
+        versionName = "1.9"
         // Set VERSION_API_KEY in local.properties / CI; never commit the real key.
         buildConfigField("String", "VERSION_API_KEY", "\"${project.findProperty("VERSION_API_KEY") ?: ""}\"")
     }
