@@ -29,7 +29,7 @@ object AppConstants {
     const val JURISDICTION = "jurisdiction"
     const val TZ = "TZ"
 
-    const val APP_URL = "https://play.google.com/store/apps/details?id=com.alburooj.app"
+    const val APP_URL = "https://play.google.com/store/apps/details?id=com.Trendsoft.com.Al_Burooj"
 
     const val Fajr = "Fajr"
     const val Dhuhar = "Dhuhar"
