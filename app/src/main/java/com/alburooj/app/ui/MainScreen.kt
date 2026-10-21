@@ -18,7 +18,7 @@ import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.AccessTime
 import androidx.compose.material.icons.filled.Business
 import androidx.compose.material.icons.filled.Explore
-import androidx.compose.material.icons.filled.Help
+import androidx.compose.material.icons.automirrored.filled.Help
 import androidx.compose.material.icons.filled.Menu
 import androidx.compose.material.icons.filled.Policy
 import androidx.compose.material.icons.filled.Settings
@@ -177,7 +177,7 @@ fun MainScreen(locationManager: LocationManager) {
                             Text(header.city, Modifier.padding(end = 12.dp), color = Color.White, fontWeight = FontWeight.Medium)
                         }
                     },
-                    colors = TopAppBarDefaults.centerAlignedTopAppBarColors(
+                    colors = TopAppBarDefaults.topAppBarColors(
                         containerColor = ThemeColor, titleContentColor = Color.White,
                         navigationIconContentColor = Color.White, actionIconContentColor = Color.White
                     )
@@ -258,7 +258,7 @@ private fun DrawerContent(
         HorizontalDivider()
         DrawerItem(Icons.Filled.Star, "Rate the App") { close(); onRate() }
         DrawerItem(Icons.Filled.Share, "Share App") { close(); onShare() }
-        DrawerItem(Icons.Filled.Help, "Help & Support") { close(); onHelp() }
+        DrawerItem(Icons.AutoMirrored.Filled.Help, "Help & Support") { close(); onHelp() }
         HorizontalDivider(Modifier.padding(vertical = 8.dp))
         DrawerItem(Icons.Filled.Description, "Terms of Use") { close(); onTerms() }
         DrawerItem(Icons.Filled.Policy, "Privacy Policy") { close(); onPrivacy() }
