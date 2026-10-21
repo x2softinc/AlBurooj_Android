@@ -11,7 +11,7 @@ import kotlinx.serialization.json.Json
 /** Mapped from VersionService.swift. Returns true when a forced update is required. */
 class VersionService(private val context: Context) {
     private val json = Json { ignoreUnknownKeys = true; coerceInputValues = true }
-    private val versionUrl = "https://nexus.x2softinc.com/api/v1/apps/by-code/ALBIOS1"
+    private val versionUrl = "https://nexus.x2softinc.com/api/v1/apps/by-code/ALBAND1"
 
     suspend fun checkVersion(): Boolean {
         val res = ApiClient.get(

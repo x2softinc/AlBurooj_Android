@@ -7,6 +7,7 @@ import android.content.Context
 import android.content.Intent
 import androidx.core.app.NotificationCompat
 import com.alburooj.app.MainActivity
+import com.alburooj.app.R
 import android.app.PendingIntent
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -19,7 +20,7 @@ class NotificationReceiver : BroadcastReceiver() {
         val open = PendingIntent.getActivity(context, 0, Intent(context, MainActivity::class.java), PendingIntent.FLAG_IMMUTABLE)
 
         val notification = NotificationCompat.Builder(context, channel)
-            .setSmallIcon(android.R.drawable.ic_popup_reminder)
+            .setSmallIcon(R.drawable.ic_stat_notification)
             .setContentTitle(intent.getStringExtra(EXTRA_TITLE))
             .setSubText(intent.getStringExtra(EXTRA_SUBTITLE)?.takeIf { it.isNotEmpty() })
             .setContentText(intent.getStringExtra(EXTRA_BODY))
