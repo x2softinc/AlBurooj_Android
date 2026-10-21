@@ -13,8 +13,13 @@ import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.Image
+import androidx.compose.foundation.verticalScroll
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
+import androidx.compose.ui.unit.Dp
+import androidx.compose.foundation.layout.fillMaxHeight
+import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -120,13 +125,12 @@ fun QiblaScreen(locationManager: LocationManager) {
     val animatedProgress by animateFloatAsState(1f - progress, label = "progress")
     val lockGlow = Color(0xFF2E7D32)
 
-    Column(
-        Modifier.fillMaxSize().padding(horizontal = 16.dp),
-        horizontalAlignment = Alignment.CenterHorizontally,
-        verticalArrangement = Arrangement.Center
-    ) {
+    val config = LocalConfiguration.current
+    val sideBySide = isTablet && config.screenWidthDp > config.screenHeightDp
+
+    val compass: @Composable (Dp) -> Unit = { diameter ->
         Box(contentAlignment = Alignment.Center) {
-            val ring = compassSize + 16.dp
+            val ring = diameter + 16.dp
             Canvas(Modifier.size(ring)) {
                 val stroke = ringWidth.toPx()
                 val inset = stroke / 2
@@ -135,15 +139,16 @@ fun QiblaScreen(locationManager: LocationManager) {
                 drawArc(lockGlow, -90f, 360f * animatedProgress, false, topLeft = androidx.compose.ui.geometry.Offset(inset, inset), size = arcSize, style = Stroke(stroke, cap = StrokeCap.Round))
             }
             // The image has a Kaaba marker at 0°; rotating it by the pointer rotation aims the marker at the Qibla.
-            Image(painterResource(R.drawable.compass), contentDescription = "Qibla compass", modifier = Modifier.size(compassSize).rotate(animatedRotation))
+            Image(painterResource(R.drawable.compass), contentDescription = "Qibla compass", modifier = Modifier.size(diameter).rotate(animatedRotation))
             if (isLocked) {
                 Box(Modifier.size(46.dp), contentAlignment = Alignment.Center) {
                     Icon(Icons.Filled.Lock, contentDescription = "Aligned", tint = lockGlow)
                 }
             }
         }
+    }
 
-        Spacer(Modifier.size(24.dp))
+    val info: @Composable () -> Unit = {
         Text(statusText, style = MaterialTheme.typography.titleMedium, textAlign = TextAlign.Center)
         Spacer(Modifier.size(8.dp))
         Row(horizontalArrangement = Arrangement.spacedBy(32.dp)) {
@@ -154,6 +159,30 @@ fun QiblaScreen(locationManager: LocationManager) {
         Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
             Text("Use True North", Modifier.weight(1f))
             Switch(useTrueNorth, { useTrueNorth = it })
+        }
+    }
+
+    if (sideBySide) {
+        // Landscape tablet: compass beside the readout so nothing needs scrolling.
+        Row(
+            Modifier.fillMaxSize().padding(horizontal = 24.dp),
+            horizontalArrangement = Arrangement.spacedBy(32.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            BoxWithConstraints(Modifier.weight(1f).fillMaxHeight(), contentAlignment = Alignment.Center) {
+                compass(minOf(compassSize, maxWidth - 16.dp, maxHeight - 16.dp))
+            }
+            Column(Modifier.weight(1f), horizontalAlignment = Alignment.CenterHorizontally) { info() }
+        }
+    } else {
+        Column(
+            Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(horizontal = 16.dp, vertical = 8.dp),
+            horizontalAlignment = Alignment.CenterHorizontally,
+            verticalArrangement = Arrangement.Center
+        ) {
+            compass(compassSize)
+            Spacer(Modifier.size(24.dp))
+            info()
         }
     }
 }

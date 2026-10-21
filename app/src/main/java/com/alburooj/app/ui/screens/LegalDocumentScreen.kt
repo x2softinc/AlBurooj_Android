@@ -51,6 +51,9 @@ fun LegalDocumentScreen(document: LegalDocument) {
             key(retryToken) {
                 AndroidView(factory = { ctx ->
                     WebView(ctx).apply {
+                        // The hosted page reveals its content with JavaScript.
+                        settings.javaScriptEnabled = true
+                        settings.domStorageEnabled = true
                         webViewClient = object : WebViewClient() {
                             override fun onPageStarted(view: WebView?, u: String?, favicon: Bitmap?) { isLoading = true }
                             override fun onPageFinished(view: WebView?, u: String?) { isLoading = false }

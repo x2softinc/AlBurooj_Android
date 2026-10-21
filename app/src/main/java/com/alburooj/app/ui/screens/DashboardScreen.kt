@@ -8,6 +8,7 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
@@ -46,6 +47,7 @@ import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.viewmodel.compose.viewModel
@@ -165,9 +167,15 @@ private fun DayPrayerPage(dayOffset: Int, timesVM: TimesViewModel) {
             else midnight
         }
 
+        val config = LocalConfiguration.current
+        val isWide = config.screenWidthDp >= 600
+        // Tall enough: stretch the rows to fill the screen instead of scrolling.
+        val fillHeight = isWide && config.screenHeightDp >= 480
+
         Column(
-            Modifier.fillMaxSize().background(MaroonColor).verticalScroll(rememberScrollState()).padding(8.dp),
-            verticalArrangement = Arrangement.spacedBy(8.dp)
+            Modifier.fillMaxSize().background(MaroonColor)
+                .then(if (fillHeight) Modifier else Modifier.verticalScroll(rememberScrollState()))
+                .padding(8.dp)
         ) {
             fun isCurrent(name: String) = current?.name?.let {
                 when (name) {
@@ -177,16 +185,40 @@ private fun DayPrayerPage(dayOffset: Int, timesVM: TimesViewModel) {
                 }
             } ?: false
 
-            PrayerCard("Fajr", adhan.fajr, iqama?.fajr, isCurrent("Fajr"), adhan.sunrise, tick, timesVM)
-            PrayerCard("Sunrise", adhan.sunrise, null, isCurrent("Sunrise"), null, tick, timesVM)
-            PrayerCard("Dhuhar", adhan.dhuhar, iqama?.dhuhar, isCurrent("Dhuhar"), adhan.asar, tick, timesVM)
-            PrayerCard(
-                "Asar", if (jurisdiction != 0) adhan.asarHanafi else adhan.asar, iqama?.asar,
-                isCurrent("Asar"), adhan.maghrib, tick, timesVM
+            val cards = listOf<@Composable () -> Unit>(
+                { PrayerCard("Fajr", adhan.fajr, iqama?.fajr, isCurrent("Fajr"), adhan.sunrise, tick, timesVM, fillHeight) },
+                { PrayerCard("Sunrise", adhan.sunrise, null, isCurrent("Sunrise"), null, tick, timesVM, fillHeight) },
+                { PrayerCard("Dhuhar", adhan.dhuhar, iqama?.dhuhar, isCurrent("Dhuhar"), adhan.asar, tick, timesVM, fillHeight) },
+                {
+                    PrayerCard(
+                        "Asar", if (jurisdiction != 0) adhan.asarHanafi else adhan.asar, iqama?.asar,
+                        isCurrent("Asar"), adhan.maghrib, tick, timesVM, fillHeight
+                    )
+                },
+                { PrayerCard("Maghrib", adhan.maghrib, iqama?.maghrib, isCurrent("Maghrib"), adhan.isha, tick, timesVM, fillHeight) },
+                { PrayerCard("Isha", adhan.isha, iqama?.isha, isCurrent("Isha"), ishaEnd, tick, timesVM, fillHeight) }
             )
-            PrayerCard("Maghrib", adhan.maghrib, iqama?.maghrib, isCurrent("Maghrib"), adhan.isha, tick, timesVM)
-            PrayerCard("Isha", adhan.isha, iqama?.isha, isCurrent("Isha"), ishaEnd, tick, timesVM)
 
+            // Wide screens: two cards per row, using the full width (and height when there is room).
+            Column(
+                Modifier.fillMaxWidth().then(if (fillHeight) Modifier.weight(1f) else Modifier),
+                verticalArrangement = Arrangement.spacedBy(8.dp)
+            ) {
+                if (isWide) {
+                    cards.chunked(2).forEach { pair ->
+                        Row(
+                            Modifier.fillMaxWidth().then(if (fillHeight) Modifier.weight(1f) else Modifier),
+                            horizontalArrangement = Arrangement.spacedBy(8.dp)
+                        ) {
+                            pair.forEach { card ->
+                                Box(Modifier.weight(1f).then(if (fillHeight) Modifier.fillMaxHeight() else Modifier)) { card() }
+                            }
+                        }
+                    }
+                } else {
+                    cards.forEach { it() }
+                }
+            }
             JummaSection(settings?.jumma.orEmpty(), settings?.jumma2.orEmpty())
         }
     }
@@ -201,9 +233,18 @@ private fun DateHeader(date: Date) {
             .format(LocalDate.from(local))
     }
     Column(Modifier.fillMaxWidth().padding(vertical = 4.dp), horizontalAlignment = Alignment.CenterHorizontally) {
-        Text(gregorian, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold)
-        Text(hijri, style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.SemiBold, color = ThemeColor)
+        val k = rememberTabletScale()
+        Text(gregorian, style = MaterialTheme.typography.titleMedium, fontSize = (16 * k).sp, fontWeight = FontWeight.SemiBold)
+        Text(hijri, style = MaterialTheme.typography.titleSmall, fontSize = (14 * k).sp, fontWeight = FontWeight.SemiBold, color = ThemeColor)
     }
+}
+
+/** Text/icon multiplier: 1 on phones, grows with the screen on tablets (capped so content still fits). */
+@Composable
+fun rememberTabletScale(): Float {
+    val c = LocalConfiguration.current
+    if (c.screenWidthDp < 600) return 1f
+    return minOf(c.screenWidthDp / 700f, c.screenHeightDp / 500f).coerceIn(1f, 1.8f)
 }
 
 private fun formatTime(date: Date?, pattern: String = "h:mm a") =
@@ -217,47 +258,62 @@ private fun PrayerCard(
     isCurrent: Boolean,
     boundaryTime: Date?,
     now: Date,
-    timesVM: TimesViewModel
+    timesVM: TimesViewModel,
+    fillHeight: Boolean = false
 ) {
+    val k = rememberTabletScale()
     val textColor = if (isCurrent) Color.White else MaroonColor
     val shape = RoundedCornerShape(20.dp)
     val scale by animateFloatAsState(if (isCurrent) 1.012f else 1f, label = "scale")
 
-    val background = if (isCurrent)
-        Brush.linearGradient(listOf(Color(0xFFE6B8B8), Color(0xFF8D6E63)), Offset.Zero, Offset.Infinite)
-    else Brush.linearGradient(listOf(Color.White, Color.White))
+    val background = if (isCurrent) Color(0xFF8A2A2A) else Color.White // slightly lighter, muted maroon
+    // Bevelled border for the current prayer: light edge top-left, dark edge bottom-right.
+    val border = if (isCurrent)
+        BorderStroke(
+            (4 * k.coerceAtMost(1.5f)).dp,
+            Brush.linearGradient(listOf(Color(0xFFFFE9B8), Color(0xFFD9A441), Color(0xFF5A3A0A)), Offset.Zero, Offset.Infinite)
+        )
+    else BorderStroke(1.dp, Color.White.copy(alpha = 0.6f))
 
     Card(
-        modifier = Modifier.fillMaxWidth().padding(vertical = 2.dp).graphicsLayer(scaleX = scale, scaleY = scale),
+        modifier = Modifier.fillMaxWidth().then(if (fillHeight) Modifier.fillMaxHeight() else Modifier)
+            .padding(vertical = 2.dp).graphicsLayer(scaleX = scale, scaleY = scale),
         shape = shape,
-        elevation = CardDefaults.cardElevation(if (isCurrent) 10.dp else 3.dp),
-        border = BorderStroke(if (isCurrent) 1.8.dp else 1.dp, if (isCurrent) Color.White else Color.White.copy(alpha = 0.6f))
+        elevation = CardDefaults.cardElevation(if (isCurrent) 16.dp else 3.dp),
+        border = border
     ) {
-        Column(Modifier.background(background).padding(horizontal = 14.dp, vertical = 14.dp)) {
+        Column(
+            Modifier.then(if (fillHeight) Modifier.fillMaxSize() else Modifier).background(background).padding(horizontal = 14.dp, vertical = 14.dp),
+            verticalArrangement = Arrangement.Center
+        ) {
             Row(verticalAlignment = Alignment.CenterVertically) {
                 Box(
-                    Modifier.size(30.dp).clip(CircleShape).background(Color.Black.copy(alpha = if (isCurrent) 0.12f else 0.04f)),
+                    Modifier.size((30 * k).dp).clip(CircleShape).background(if (isCurrent) Color.White.copy(alpha = 0.18f) else Color.Black.copy(alpha = 0.04f)),
                     contentAlignment = Alignment.Center
                 ) {
                     Icon(
                         if (isCurrent) Icons.Filled.Notifications else Icons.Filled.Schedule,
                         contentDescription = null,
-                        tint = if (isCurrent) ThemeColor else Color.Gray,
-                        modifier = Modifier.size(16.dp)
+                        tint = if (isCurrent) Color.White else Color.Gray,
+                        modifier = Modifier.size((16 * k).dp)
                     )
                 }
                 Column(Modifier.padding(start = 12.dp).weight(1f)) {
-                    Text(title, fontWeight = FontWeight.Bold, fontSize = 17.sp, color = textColor)
-                    Text(formatTime(adhanTime), fontFamily = FontFamily.Monospace, fontWeight = FontWeight.SemiBold, fontSize = 17.sp, color = textColor)
+                    Text(title, fontWeight = FontWeight.Bold, fontSize = (17 * k).sp, color = textColor)
+                    Text(formatTime(adhanTime), fontFamily = FontFamily.Monospace, fontWeight = FontWeight.SemiBold, fontSize = (17 * k).sp, color = textColor)
                 }
                 if (iqamaTime != null) {
                     Column(horizontalAlignment = Alignment.End) {
-                        Text(formatTime(iqamaTime), fontWeight = FontWeight.Bold, fontSize = 28.sp, color = textColor)
+                        Text(formatTime(iqamaTime), fontWeight = FontWeight.Bold, fontSize = (28 * k).sp, color = textColor)
                         if (isCurrent && adhanTime != null) {
                             val c = timesVM.countdownInfo(now, adhanTime, iqamaTime, null)
+                            // White pill so the countdown stays readable on the highlighted card's gradient.
                             Text(
                                 c.countdown.ifEmpty { "--:--" },
-                                fontFamily = FontFamily.Monospace, fontWeight = FontWeight.SemiBold,
+                                Modifier.padding(top = 4.dp)
+                                    .background(Color.White.copy(alpha = 0.92f), RoundedCornerShape(50))
+                                    .padding(horizontal = (10 * k).dp, vertical = (2 * k).dp),
+                                fontFamily = FontFamily.Monospace, fontWeight = FontWeight.Bold, fontSize = (14 * k).sp,
                                 color = countdownColor(c.label)
                             )
                         }
@@ -273,9 +329,9 @@ private fun PrayerCard(
 }
 
 private fun countdownColor(label: String): Color = when {
-    label.contains("Since", true) -> Color.Red
+    label.contains("Since", true) -> Color(0xFFC62828)
     label.contains("Iqama", true) -> Color(0xFF2E7D32)
-    label.contains("Adhan", true) -> Color(0xFFEF6C00)
+    label.contains("Adhan", true) -> Color(0xFFE65100)
     else -> Color.Gray
 }
 
@@ -331,12 +387,13 @@ private fun JummaSection(raw1: String, raw2: String) {
 
 @Composable
 private fun JummaRow(title: String, time: String, showIcon: Boolean) {
+    val k = rememberTabletScale()
     Row(verticalAlignment = Alignment.CenterVertically) {
         Icon(
-            Icons.Filled.Groups, contentDescription = null, modifier = Modifier.size(18.dp),
+            Icons.Filled.Groups, contentDescription = null, modifier = Modifier.size((18 * k).dp),
             tint = if (showIcon) ThemeColor else Color.Transparent
         )
-        Text(title, Modifier.padding(start = 8.dp).weight(1f), fontWeight = FontWeight.SemiBold)
-        Text(displayJumma(time), fontFamily = FontFamily.Monospace, fontWeight = FontWeight.Bold, fontSize = 17.sp)
+        Text(title, Modifier.padding(start = 8.dp).weight(1f), fontWeight = FontWeight.SemiBold, fontSize = (16 * k).sp)
+        Text(displayJumma(time), fontFamily = FontFamily.Monospace, fontWeight = FontWeight.Bold, fontSize = (17 * k).sp)
     }
 }

@@ -4,17 +4,19 @@ import android.content.Intent
 import android.net.Uri
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.AccessTime
 import androidx.compose.material.icons.filled.Business
-import androidx.compose.material.icons.filled.CalendarMonth
 import androidx.compose.material.icons.filled.Explore
 import androidx.compose.material.icons.filled.Help
 import androidx.compose.material.icons.filled.Menu
@@ -33,6 +35,9 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.ModalDrawerSheet
 import androidx.compose.material3.ModalNavigationDrawer
 import androidx.compose.material3.NavigationBar
+import androidx.compose.material3.NavigationRail
+import androidx.compose.material3.NavigationRailItem
+import androidx.compose.material3.NavigationRailItemDefaults
 import androidx.compose.material3.NavigationBarItem
 import androidx.compose.material3.NavigationBarItemDefaults
 import androidx.compose.material3.Scaffold
@@ -56,6 +61,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
@@ -67,7 +73,6 @@ import androidx.navigation.compose.rememberNavController
 import com.alburooj.app.constants.AppConstants
 import com.alburooj.app.managers.LocationManager
 import com.alburooj.app.ui.screens.AdhanSoundSelectionScreen
-import com.alburooj.app.ui.screens.CalendarScreen
 import com.alburooj.app.ui.screens.DashboardHeader
 import com.alburooj.app.ui.screens.DashboardScreen
 import com.alburooj.app.ui.screens.EulaScreen
@@ -83,7 +88,6 @@ private class Tab(val route: String, val title: String, val icon: ImageVector)
 
 private val Tabs = listOf(
     Tab("dashboard", "Dashboard", Icons.Filled.AccessTime),
-    Tab("calendar", "Calendar", Icons.Filled.CalendarMonth),
     Tab("qibla", "Qibla", Icons.Filled.Explore),
     Tab("masjid", "Masjid", Icons.Filled.Business),
     Tab("settings", "Settings", Icons.Filled.Settings)
@@ -115,6 +119,16 @@ fun MainScreen(locationManager: LocationManager) {
     val backStack by navController.currentBackStackEntryAsState()
     val route = backStack?.destination?.route ?: "dashboard"
     val isSubScreen = route in SubTitles
+    val config = LocalConfiguration.current
+    val isWide = config.screenWidthDp >= 600
+    // A rail needs height for its items; a phone held sideways keeps the bottom bar.
+    val useRail = isWide && config.screenHeightDp >= 480
+    val navigateToTab = { tabRoute: String ->
+        navController.navigate(tabRoute) {
+            popUpTo(navController.graph.findStartDestination().id) { saveState = true }
+            launchSingleTop = true; restoreState = true
+        }
+    }
 
     val title = when {
         isSubScreen -> SubTitles.getValue(route)
@@ -170,17 +184,12 @@ fun MainScreen(locationManager: LocationManager) {
                 )
             },
             bottomBar = {
-                if (!isSubScreen) {
+                if (!isSubScreen && !useRail) {
                     NavigationBar {
                         Tabs.forEach { tab ->
                             NavigationBarItem(
                                 selected = route == tab.route,
-                                onClick = {
-                                    navController.navigate(tab.route) {
-                                        popUpTo(navController.graph.findStartDestination().id) { saveState = true }
-                                        launchSingleTop = true; restoreState = true
-                                    }
-                                },
+                                onClick = { navigateToTab(tab.route) },
                                 icon = { Icon(tab.icon, tab.title) },
                                 label = { Text(tab.title) },
                                 colors = NavigationBarItemDefaults.colors(selectedIconColor = Color.White, indicatorColor = ThemeColor)
@@ -190,21 +199,41 @@ fun MainScreen(locationManager: LocationManager) {
                 }
             }
         ) { padding ->
-            NavHost(navController, startDestination = "dashboard", modifier = Modifier.padding(padding).fillMaxSize()) {
-                composable("dashboard") { DashboardScreen(locationManager = locationManager, onHeader = { header = it }) }
-                composable("calendar") { CalendarScreen() }
-                composable("qibla") { QiblaScreen(locationManager) }
-                composable("masjid") { MasjidScreen() }
-                composable("settings") {
-                    SettingsScreen(
-                        onAdhanSound = { navController.navigate("adhanSound") },
-                        onTerms = { navController.navigate("terms") },
-                        onPrivacy = { navController.navigate("privacy") }
-                    )
+            Row(Modifier.padding(padding).fillMaxSize()) {
+                if (useRail && !isSubScreen) {
+                    NavigationRail {
+                        Spacer(Modifier.weight(1f))
+                        Tabs.forEach { tab ->
+                            NavigationRailItem(
+                                selected = route == tab.route,
+                                onClick = { navigateToTab(tab.route) },
+                                icon = { Icon(tab.icon, tab.title) },
+                                label = { Text(tab.title) },
+                                colors = NavigationRailItemDefaults.colors(selectedIconColor = Color.White, indicatorColor = ThemeColor)
+                            )
+                        }
+                        Spacer(Modifier.weight(1f))
+                    }
                 }
-                composable("adhanSound") { AdhanSoundSelectionScreen() }
-                composable("terms") { EulaScreen() }
-                composable("privacy") { LegalDocumentScreen(LegalDocument.PrivacyPolicy) }
+                // On wide screens, keep content readable: the dashboard, masjid info and the hosted privacy page use the whole screen, the rest is centred and capped.
+                Box(Modifier.weight(1f).fillMaxHeight(), contentAlignment = Alignment.TopCenter) {
+                    val capped = if (isWide && route != "dashboard" && route != "masjid" && route != "privacy") Modifier.widthIn(max = 840.dp) else Modifier
+                    NavHost(navController, startDestination = "dashboard", modifier = capped.fillMaxSize()) {
+                        composable("dashboard") { DashboardScreen(locationManager = locationManager, onHeader = { header = it }) }
+                        composable("qibla") { QiblaScreen(locationManager) }
+                        composable("masjid") { MasjidScreen() }
+                        composable("settings") {
+                            SettingsScreen(
+                                onAdhanSound = { navController.navigate("adhanSound") },
+                                onTerms = { navController.navigate("terms") },
+                                onPrivacy = { navController.navigate("privacy") }
+                            )
+                        }
+                        composable("adhanSound") { AdhanSoundSelectionScreen() }
+                        composable("terms") { EulaScreen() }
+                        composable("privacy") { LegalDocumentScreen(LegalDocument.PrivacyPolicy) }
+                    }
+                }
             }
         }
     }
