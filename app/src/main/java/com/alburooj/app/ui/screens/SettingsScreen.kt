@@ -1,6 +1,7 @@
 package com.alburooj.app.ui.screens
 
 import android.Manifest
+import android.app.AlarmManager
 import android.content.ClipData
 import android.content.ClipboardManager
 import android.content.Context
@@ -36,6 +37,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import androidx.lifecycle.compose.LifecycleResumeEffect
 import com.alburooj.app.constants.AppConstants
 import com.alburooj.app.data.AppPrefs
 import com.alburooj.app.data.models.AdhanSoundOption
@@ -72,6 +74,11 @@ fun SettingsScreen(onAdhanSound: () -> Unit, onTerms: () -> Unit, onPrivacy: () 
     var connectedTick by remember { mutableStateOf(0) }
     var alert by remember { mutableStateOf<Pair<String, String>?>(null) }
     var showDenied by remember { mutableStateOf(false) }
+
+    var resumeTick by remember { mutableStateOf(0) }
+    LifecycleResumeEffect(Unit) { resumeTick++; onPauseOrDispose { } }
+    val needsExactAlarm = resumeTick >= 0 && Build.VERSION.SDK_INT >= 31 &&
+        !(context.getSystemService(Context.ALARM_SERVICE) as AlarmManager).canScheduleExactAlarms()
 
     val auth = remember { AuthService() }
     val isConnected = connectedTick >= 0 && AppPrefs.getString(AppConstants.AUTH_TOKEN).isNotEmpty() && !auth.isAuthTokenExpired()
@@ -156,6 +163,17 @@ fun SettingsScreen(onAdhanSound: () -> Unit, onTerms: () -> Unit, onPrivacy: () 
                 Text("Adhan Sound", Modifier.weight(1f), color = if (enabled) Color.Unspecified else MaterialTheme.colorScheme.outline)
                 Text(soundName, color = MaterialTheme.colorScheme.onSurfaceVariant)
             }
+        }
+        if (notificationsEnabled && needsExactAlarm) {
+            item {
+                ActionRow("Allow Exact Alarms") {
+                    context.startActivity(
+                        Intent(Settings.ACTION_REQUEST_SCHEDULE_EXACT_ALARM, Uri.parse("package:${context.packageName}"))
+                            .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+                    )
+                }
+            }
+            item { Note("Without this permission, prayer reminders may arrive several minutes late.") }
         }
         item { Note("The selected sound is used only for Adhan notifications. Iqama notifications keep the default system sound.") }
 

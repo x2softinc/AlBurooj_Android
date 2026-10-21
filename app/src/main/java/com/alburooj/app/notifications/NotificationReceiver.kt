@@ -1,5 +1,6 @@
 package com.alburooj.app.notifications
 
+import android.app.AlarmManager
 import android.app.NotificationManager
 import android.content.BroadcastReceiver
 import android.content.Context
@@ -44,10 +45,10 @@ class NotificationReceiver : BroadcastReceiver() {
     }
 }
 
-/** Alarms are cleared on reboot; rebuild them. */
+/** Alarms are cleared on reboot or when exact-alarm access changes; rebuild them. */
 class BootReceiver : BroadcastReceiver() {
     override fun onReceive(context: Context, intent: Intent) {
-        if (intent.action != Intent.ACTION_BOOT_COMPLETED) return
+        if (intent.action != Intent.ACTION_BOOT_COMPLETED && intent.action != AlarmManager.ACTION_SCHEDULE_EXACT_ALARM_PERMISSION_STATE_CHANGED) return
         val pending = goAsync()
         CoroutineScope(Dispatchers.IO).launch {
             try { NotificationScheduler(context).syncNotifications() } finally { pending.finish() }
