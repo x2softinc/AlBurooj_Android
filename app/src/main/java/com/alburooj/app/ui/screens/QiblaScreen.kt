@@ -220,8 +220,12 @@ private fun vibrateSuccess(context: Context) {
     val now = System.currentTimeMillis()
     if (now - lastHapticAt < 800) return // throttle to 1 per 0.8s
     lastHapticAt = now
-    val vibrator = if (Build.VERSION.SDK_INT >= 31)
-        (context.getSystemService(Context.VIBRATOR_MANAGER_SERVICE) as VibratorManager).defaultVibrator
-    else @Suppress("DEPRECATION") context.getSystemService(Context.VIBRATOR_SERVICE) as Vibrator
-    vibrator.vibrate(VibrationEffect.createOneShot(40, VibrationEffect.DEFAULT_AMPLITUDE))
+    try {
+        val vibrator = if (Build.VERSION.SDK_INT >= 31)
+            (context.getSystemService(Context.VIBRATOR_MANAGER_SERVICE) as VibratorManager).defaultVibrator
+        else @Suppress("DEPRECATION") context.getSystemService(Context.VIBRATOR_SERVICE) as Vibrator
+        if (vibrator.hasVibrator()) vibrator.vibrate(VibrationEffect.createOneShot(40, VibrationEffect.DEFAULT_AMPLITUDE))
+    } catch (_: Exception) {
+        // Haptics are best-effort; never crash the compass over them.
+    }
 }

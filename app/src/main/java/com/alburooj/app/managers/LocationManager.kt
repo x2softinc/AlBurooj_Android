@@ -66,7 +66,9 @@ class LocationManager(private val context: Context) {
     private val orientation = FloatArray(3)
     private val headingListener = object : SensorEventListener {
         override fun onSensorChanged(event: SensorEvent) {
-            SensorManager.getRotationMatrixFromVector(rotationMatrix, event.values)
+            // Some devices report >4 values, which getRotationMatrixFromVector rejects.
+            val v = if (event.values.size > 4) event.values.copyOf(4) else event.values
+            SensorManager.getRotationMatrixFromVector(rotationMatrix, v)
             SensorManager.getOrientation(rotationMatrix, orientation)
             val deg = Math.toDegrees(orientation[0].toDouble()).toFloat()
             _heading.value = (deg + 360f) % 360f
